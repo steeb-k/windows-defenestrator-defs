@@ -148,7 +148,9 @@ def build_hash_db(out_dir: Path) -> int:
     #   8: signature (name) …
     SHA256_COL, MD5_COL, NAME_COL = 1, 2, 8
 
-    reader = csv.reader(io.StringIO(csv_text))
+    # MalwareBazaar uses "value", "value" format (space after comma),
+    # so skipinitialspace=True is required for correct quoted-field parsing.
+    reader = csv.reader(io.StringIO(csv_text), skipinitialspace=True)
     rows = []
     row_count = 0
 
