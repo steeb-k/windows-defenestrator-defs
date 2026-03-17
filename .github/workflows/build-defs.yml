@@ -1,0 +1,121 @@
+name: Build & Release Definitions
+
+on:
+  schedule:
+    # 02:00 UTC daily
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: "Force a new release even if definitions haven't changed"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # needed to create releases
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install git (for rule cloning)
+        run: sudo apt-get install -y git
+
+      - name: Restore YARA repo cache
+        id: yara-cache
+        uses: actions/cache@v4
+        with:
+          path: work/
+          key: yara-repos-${{ github.run_id }}
+          restore-keys: |
+            yara-repos-
+
+      - name: Build definition pack
+        run: python scripts/build_definitions.py --out dist/ --work work/ --repo ${{ github.repository }}
+
+      - name: Read manifest
+        id: manifest
+        run: |
+          VERSION=$(python -c "import json; m=json.load(open('dist/manifest.json')); print(m['version'])")
+          HASH_COUNT=$(python -c "import json; m=json.load(open('dist/manifest.json')); print(m['hash_count'])")
+          RULE_COUNT=$(python -c "import json; m=json.load(open('dist/manifest.json')); print(m['rule_count'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "hash_count=$HASH_COUNT" >> $GITHUB_OUTPUT
+          echo "rule_count=$RULE_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Check if release already exists
+        id: check-release
+        run: |
+          VERSION=${{ steps.manifest.outputs.version }}
+          if gh release view "$VERSION" --repo ${{ github.repository }} > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete existing release if force
+        if: steps.check-release.outputs.exists == 'true' && inputs.force_release == true
+        run: |
+          gh release delete ${{ steps.manifest.outputs.version }} --yes --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        if: steps.check-release.outputs.exists == 'false' || inputs.force_release == true
+        run: |
+          VERSION=${{ steps.manifest.outputs.version }}
+          HASH_COUNT=${{ steps.manifest.outputs.hash_count }}
+          RULE_COUNT=${{ steps.manifest.outputs.rule_count }}
+
+          gh release create "$VERSION" \
+            --repo ${{ github.repository }} \
+            --title "Definitions $VERSION" \
+            --notes "$(cat <<EOF
+          ## Threat Definitions — $VERSION
+
+          | Metric | Value |
+          |--------|-------|
+          | Hash signatures | $(printf "%'d" $HASH_COUNT) |
+          | YARA rule files | $RULE_COUNT |
+
+          ### Sources
+          - **Hashes**: [MalwareBazaar](https://bazaar.abuse.ch/) full export
+          - **YARA**: [neo23x0/signature-base](https://github.com/Neo23x0/signature-base), [Yara-Rules/rules](https://github.com/Yara-Rules/rules)
+          EOF
+          )" \
+            dist/definitions.zip \
+            dist/manifest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update latest manifest pointer
+        if: steps.check-release.outputs.exists == 'false' || inputs.force_release == true
+        run: |
+          # Also upload manifest.json as a standalone asset to the "latest" release
+          # so the app can always fetch it at a stable URL via /releases/latest/download/manifest.json
+          echo "Release created at: https://github.com/${{ github.repository }}/releases/tag/${{ steps.manifest.outputs.version }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### Definition Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ steps.manifest.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Hash signatures | ${{ steps.manifest.outputs.hash_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| YARA rule files | ${{ steps.manifest.outputs.rule_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Release created | ${{ steps.check-release.outputs.exists == 'false' || inputs.force_release }} |" >> $GITHUB_STEP_SUMMARY
