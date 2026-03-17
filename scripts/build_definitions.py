@@ -141,68 +141,32 @@ def build_hash_db(out_dir: Path) -> int:
     sample_lines = [l for l in csv_text.splitlines()[:20] if not l.startswith("#")]
     print(f"  First non-comment lines: {sample_lines[:3]}", flush=True)
 
-    reader = csv.reader(io.StringIO(csv_text))
+    # MalwareBazaar full.csv has NO header row — data starts after # comment lines.
+    # Fixed column layout (as of 2025):
+    #   0: first_seen_utc  1: sha256_hash  2: md5_hash  3: sha1_hash
+    #   4: reporter        5: file_name    6: file_type  7: mime_type
+    #   8: signature (name) …
+    SHA256_COL, MD5_COL, NAME_COL = 1, 2, 8
 
-    # Detect column indices from header
-    sha256_col = md5_col = name_col = None
+    reader = csv.reader(io.StringIO(csv_text))
     rows = []
     row_count = 0
 
     for row in reader:
         if not row:
             continue
-
         # Skip comment lines
         if row[0].strip().startswith("#"):
             continue
-
-        # Detect header row (contains column names, not hex hashes)
-        if sha256_col is None:
-            header = [c.strip().strip('"').lower() for c in row]
-            print(f"  CSV header: {header}", flush=True)
-            try:
-                sha256_col = header.index("sha256_hash")
-            except ValueError:
-                # Some exports use different names
-                for i, h in enumerate(header):
-                    if "sha256" in h:
-                        sha256_col = i
-                        break
-            try:
-                md5_col = header.index("md5_hash")
-            except ValueError:
-                for i, h in enumerate(header):
-                    if "md5" in h:
-                        md5_col = i
-                        break
-            # Name: prefer "signature", fall back to "file_name"
-            for candidate in ("signature", "file_name", "name"):
-                try:
-                    name_col = header.index(candidate)
-                    break
-                except ValueError:
-                    pass
-
-            if sha256_col is None:
-                print(f"  ERROR: Could not find sha256 column in header: {header}", flush=True)
-                return 0
-            if md5_col is None:
-                md5_col = 0  # fallback
-            if name_col is None:
-                name_col = sha256_col  # last resort
-
-            print(f"  Column mapping: sha256={sha256_col}, md5={md5_col}, name={name_col}", flush=True)
+        if len(row) <= SHA256_COL:
             continue
 
         row_count += 1
 
-        try:
-            sha256 = row[sha256_col].strip().lower()
-            md5    = row[md5_col].strip().lower() if md5_col < len(row) else ""
-            raw_name = row[name_col].strip() if name_col < len(row) else ""
-            name = (raw_name or "Unknown")[:200]
-        except IndexError:
-            continue
+        sha256 = row[SHA256_COL].strip().lower()
+        md5    = row[MD5_COL].strip().lower() if len(row) > MD5_COL else ""
+        name   = (row[NAME_COL].strip() if len(row) > NAME_COL else "") or row[5].strip() if len(row) > 5 else "Unknown"
+        name   = (name or "Unknown")[:200]
 
         if len(sha256) != 64:
             continue
