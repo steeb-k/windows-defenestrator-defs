@@ -59,6 +59,8 @@ YARA_SOURCES = [
         "exclude_patterns": [
             r"_index\.yar",
             r"TESTING",
+            r"packer_compiler_signatures",   # IsPE32/IsPE64 — match every PE binary
+            r"Javascript_exploit_and_obfuscation",  # possible_includes_base64_packed_functions — too broad
         ],
     },
     {
