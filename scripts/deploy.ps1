@@ -8,11 +8,11 @@ param(
 $ErrorActionPreference = "Stop"
 $REPO = "steeb-k/windows-defenestrator-defs"
 
-# ── Push ──────────────────────────────────────────────────────────────────────
+# Push
 if (-not $NoPush) {
     $dirty = git status --porcelain
     if ($dirty) {
-        Write-Error "Working tree has uncommitted changes — commit or stash before deploying.`n$dirty"
+        Write-Error "Working tree has uncommitted changes - commit or stash before deploying.`n$dirty"
         exit 1
     }
     Write-Host "Pushing to origin..."
@@ -21,7 +21,7 @@ if (-not $NoPush) {
     Write-Host "(Skipping push)"
 }
 
-# ── Refresh NSRL ──────────────────────────────────────────────────────────────
+# Refresh NSRL
 Write-Host "Triggering refresh-nsrl workflow..."
 gh workflow run refresh-nsrl.yml --repo $REPO
 
@@ -33,7 +33,7 @@ Write-Host "Waiting for NSRL refresh to complete..."
 gh run watch $nsrlRunId --repo $REPO --exit-status
 Write-Host "  NSRL refresh done."
 
-# ── Trigger definitions build ─────────────────────────────────────────────────
+# Trigger definitions build
 Write-Host "Triggering definitions build (force_release=true)..."
 gh workflow run build-defs.yml --repo $REPO -f force_release=true
 
