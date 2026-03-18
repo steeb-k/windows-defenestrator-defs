@@ -64,9 +64,9 @@ YARA_SOURCES = [
     {
         "name": "reversinglabs-yara-rules",
         "url": "https://github.com/reversinglabs/reversinglabs-yara-rules.git",
-        "subdirs": ["yara/rules/ransomware", "yara/rules/backdoor", "yara/rules/trojan",
-                    "yara/rules/infostealer", "yara/rules/virus", "yara/rules/exploit",
-                    "yara/rules/downloader", "yara/rules/rootkit"],
+        "subdirs": ["yara/ransomware", "yara/backdoor", "yara/trojan",
+                    "yara/infostealer", "yara/virus", "yara/exploit",
+                    "yara/downloader", "yara/rootkit"],
         "exclude_patterns": [],
     },
     {

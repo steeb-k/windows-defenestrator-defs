@@ -20,21 +20,21 @@ jobs:
       - name: Download NSRL Modern Minimal RDS from NIST
         run: |
           echo "Downloading NSRL Modern Minimal RDS..."
-          curl -L \
+          curl -fL \
             --retry 3 \
             --retry-delay 15 \
-            --retry-all-errors \
             --connect-timeout 60 \
             --max-time 1800 \
             -H "Referer: https://www.nist.gov/itl/ssd/software-quality-group/national-software-reference-library-nsrl/nsrl-download" \
             -o rds_modernm.zip \
             "https://s3.amazonaws.com/rds.nsrl.nist.gov/RDS/current/rds_modernm.zip"
-          if [[ ! -s rds_modernm.zip ]]; then
-            echo "ERROR: downloaded file is empty"
+          # Verify it's actually a zip (not an error page)
+          if ! python3 -c "import zipfile, sys; zipfile.ZipFile('rds_modernm.zip')" 2>/dev/null; then
+            echo "ERROR: downloaded file is not a valid zip ($(du -sh rds_modernm.zip | cut -f1))"
             exit 1
           fi
           SIZE=$(du -sh rds_modernm.zip | cut -f1)
-          echo "Downloaded: $SIZE"
+          echo "Downloaded and verified: $SIZE"
 
       - name: Delete existing nsrl-stable release (if any)
         run: |
