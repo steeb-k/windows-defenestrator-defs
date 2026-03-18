@@ -80,6 +80,19 @@ YARA_SOURCES = [
 APP_VERSION = "0.1.0"
 BATCH_SIZE = 10_000
 
+# ── Hash quality filters ──────────────────────────────────────────────────────
+
+# Minimum VirusTotal detection percentage required to import a hash.
+# Dual-use tools (AutoIt, PsExec, 7-Zip, NirSoft, Sysinternals) typically
+# score 0–15 %. Real malware with multi-engine consensus starts at ~50 %.
+# Lower = broader coverage, higher = fewer false positives.
+VTPERCENT_MIN = 50
+
+# When vtpercent is "n/a" (no VT submission), also require ClamAV detection.
+# Two independent signals required before importing an unverified hash.
+# Set False to skip all n/a-vtpercent entries entirely instead.
+REQUIRE_CLAMAV_FOR_NA_VT = True
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def sha256_file(path: Path) -> str:
@@ -170,12 +183,16 @@ def build_hash_db(out_dir: Path) -> int:
     #   4: reporter        5: file_name    6: file_type  7: mime_type
     #   8: signature (name) …
     SHA256_COL, MD5_COL, NAME_COL = 1, 2, 8
+    CLAMAV_COL, VTPERCENT_COL     = 9, 10
 
     # MalwareBazaar uses "value", "value" format (space after comma),
     # so skipinitialspace=True is required for correct quoted-field parsing.
     reader = csv.reader(io.StringIO(csv_text), skipinitialspace=True)
     rows = []
     row_count = 0
+    skipped_no_name = 0
+    skipped_vt_low  = 0
+    skipped_vt_na   = 0
 
     for row in reader:
         if not row:
@@ -189,13 +206,14 @@ def build_hash_db(out_dir: Path) -> int:
         row_count += 1
 
         sha256 = row[SHA256_COL].strip().lower()
-        md5    = row[MD5_COL].strip().lower() if len(row) > MD5_COL else ""
-        name   = row[NAME_COL].strip() if len(row) > NAME_COL else ""
+        md5    = row[MD5_COL].strip().lower()    if len(row) > MD5_COL       else ""
+        name   = row[NAME_COL].strip()           if len(row) > NAME_COL      else ""
+        clamav = row[CLAMAV_COL].strip()         if len(row) > CLAMAV_COL    else ""
+        vt_raw = row[VTPERCENT_COL].strip()      if len(row) > VTPERCENT_COL else "n/a"
 
-        # Skip entries with no malware classification — "n/a" means MalwareBazaar
-        # has the hash but no AV/analyst identified it. These are the primary source
-        # of false positives for dual-use tools (AutoIt, 7-Zip, PsExec, etc.).
+        # Filter 1: must have a malware classification name
         if not name or name.lower() == "n/a":
+            skipped_no_name += 1
             continue
 
         name = name[:200]
@@ -203,11 +221,32 @@ def build_hash_db(out_dir: Path) -> int:
         if len(sha256) != 64:
             continue
 
+        # Filter 2: vtpercent quality gate
+        if vt_raw.lower() == "n/a":
+            if REQUIRE_CLAMAV_FOR_NA_VT:
+                if not clamav or clamav.lower() == "n/a":
+                    skipped_vt_na += 1
+                    continue
+                severity = "medium"   # ClamAV-only confirmation = medium confidence
+            else:
+                skipped_vt_na += 1
+                continue
+        else:
+            try:
+                vt_pct = float(vt_raw)
+            except ValueError:
+                skipped_vt_low += 1
+                continue
+            if vt_pct < VTPERCENT_MIN:
+                skipped_vt_low += 1
+                continue
+            severity = "high" if vt_pct >= 75.0 else "medium"
+
         rows.append((
             sha256,
             md5 if len(md5) == 32 else None,
             name,
-            "high",
+            severity,
             "malwarebazaar",
         ))
 
@@ -226,7 +265,13 @@ def build_hash_db(out_dir: Path) -> int:
     count = conn.execute("SELECT COUNT(*) FROM hashes").fetchone()[0]
     conn.close()
 
-    print(f"  Processed {row_count:,} CSV rows, imported {count:,} hashes into {db_path}", flush=True)
+    print(
+        f"  Processed {row_count:,} CSV rows → imported {count:,} hashes "
+        f"(skipped: {skipped_no_name:,} no-name, "
+        f"{skipped_vt_low:,} low-VT <{VTPERCENT_MIN}%, "
+        f"{skipped_vt_na:,} unverified no-VT)",
+        flush=True,
+    )
     return count
 
 
