@@ -190,8 +190,15 @@ def build_hash_db(out_dir: Path) -> int:
 
         sha256 = row[SHA256_COL].strip().lower()
         md5    = row[MD5_COL].strip().lower() if len(row) > MD5_COL else ""
-        name   = (row[NAME_COL].strip() if len(row) > NAME_COL else "") or row[5].strip() if len(row) > 5 else "Unknown"
-        name   = (name or "Unknown")[:200]
+        name   = row[NAME_COL].strip() if len(row) > NAME_COL else ""
+
+        # Skip entries with no malware classification — "n/a" means MalwareBazaar
+        # has the hash but no AV/analyst identified it. These are the primary source
+        # of false positives for dual-use tools (AutoIt, 7-Zip, PsExec, etc.).
+        if not name or name.lower() == "n/a":
+            continue
+
+        name = name[:200]
 
         if len(sha256) != 64:
             continue
