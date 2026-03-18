@@ -1,0 +1,73 @@
+name: Refresh NSRL Allowlist
+
+# Run quarterly (first day of Jan/Apr/Jul/Oct) or on demand.
+# After this completes, the next daily definitions build will pick up the
+# fresh NSRL data automatically — no other changes required.
+on:
+  schedule:
+    - cron: "0 3 1 1,4,7,10 *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Download NSRL Modern Minimal RDS from NIST
+        run: |
+          echo "Downloading NSRL Modern Minimal RDS..."
+          curl -fL \
+            --retry 3 \
+            --retry-delay 10 \
+            --connect-timeout 30 \
+            -H "User-Agent: windows-defenestrator/0.1 (https://github.com/${{ github.repository }})" \
+            -o rds_modernm.zip \
+            "https://s3.amazonaws.com/rds.nsrl.nist.gov/RDS/current/rds_modernm.zip"
+          SIZE=$(du -sh rds_modernm.zip | cut -f1)
+          echo "Downloaded: $SIZE"
+
+      - name: Delete existing nsrl-stable release (if any)
+        run: |
+          gh release delete nsrl-stable --yes --repo ${{ github.repository }} 2>/dev/null || true
+          git push --delete origin refs/tags/nsrl-stable 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish nsrl-stable release
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%MZ")
+          gh release create nsrl-stable \
+            --repo ${{ github.repository }} \
+            --title "NSRL Allowlist (stable)" \
+            --notes "$(cat <<EOF
+          ## NSRL Modern Minimal RDS
+
+          Cached copy of the [NIST National Software Reference Library](https://www.nist.gov/itl/ssd/software-quality-group/national-software-reference-library-nsrl)
+          Modern Minimal dataset, used as a known-good allowlist during scanning.
+
+          **Last refreshed:** $TIMESTAMP
+          **Source:** https://s3.amazonaws.com/rds.nsrl.nist.gov/RDS/current/rds_modernm.zip
+
+          This release is updated quarterly (Jan/Apr/Jul/Oct) by the \`refresh-nsrl\` workflow,
+          or manually via workflow_dispatch.
+          EOF
+          )" \
+            rds_modernm.zip
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          SIZE=$(du -sh rds_modernm.zip | cut -f1)
+          echo "### NSRL Refresh Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Asset | \`rds_modernm.zip\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Size | $SIZE |" >> $GITHUB_STEP_SUMMARY
+          echo "| Release tag | \`nsrl-stable\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Download URL | https://github.com/${{ github.repository }}/releases/download/nsrl-stable/rds_modernm.zip |" >> $GITHUB_STEP_SUMMARY

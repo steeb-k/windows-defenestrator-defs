@@ -32,6 +32,14 @@ from pathlib import Path
 
 MALWAREBAZAAR_URL = "https://bazaar.abuse.ch/export/csv/full/"
 
+# Primary: our own GitHub Release asset — fast, reliable, updated quarterly.
+# Fallback: NIST's S3 bucket directly (used during bootstrap or if the release
+# asset is missing).
+NSRL_URL_PRIMARY  = "https://github.com/steeb-k/windows-defenestrator-defs/releases/download/nsrl-stable/rds_modernm.zip"
+NSRL_URL_FALLBACK = "https://s3.amazonaws.com/rds.nsrl.nist.gov/RDS/current/rds_modernm.zip"
+# Windows PE/installer/driver extensions to allowlist from NSRL
+NSRL_EXTS = {".exe", ".dll", ".sys", ".drv", ".ocx", ".cpl", ".msi", ".cab"}
+
 YARA_SOURCES = [
     {
         "name": "signature-base",
@@ -41,6 +49,7 @@ YARA_SOURCES = [
             r"_TESTING",
             r"_experimental",
             r"apt_",
+            r"gen_",        # generic infrastructure rules (IsPE64, IsPE32, etc.) — match every PE binary
         ],
     },
     {
@@ -51,6 +60,20 @@ YARA_SOURCES = [
             r"_index\.yar",
             r"TESTING",
         ],
+    },
+    {
+        "name": "reversinglabs-yara-rules",
+        "url": "https://github.com/reversinglabs/reversinglabs-yara-rules.git",
+        "subdirs": ["yara/rules/ransomware", "yara/rules/backdoor", "yara/rules/trojan",
+                    "yara/rules/infostealer", "yara/rules/virus", "yara/rules/exploit",
+                    "yara/rules/downloader", "yara/rules/rootkit"],
+        "exclude_patterns": [],
+    },
+    {
+        "name": "elastic-protections",
+        "url": "https://github.com/elastic/protections-artifacts.git",
+        "subdirs": ["yara/rules"],
+        "exclude_patterns": [],
     },
 ]
 
@@ -200,7 +223,113 @@ def build_hash_db(out_dir: Path) -> int:
     return count
 
 
-# ── Step 2: YARA rules ────────────────────────────────────────────────────────
+# ── Step 2: NSRL allowlist ────────────────────────────────────────────────────
+
+def build_allowlist(out_dir: Path) -> int:
+    """Download NSRL Modern Minimal RDS, import Windows executable SHA-256s as allowlist.
+    Returns the number of allowlisted hashes inserted."""
+    db_path = out_dir / "hashes.db"
+
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS allowlist (
+            sha256 TEXT NOT NULL PRIMARY KEY
+        )
+    """)
+
+    data = None
+    for url in (NSRL_URL_PRIMARY, NSRL_URL_FALLBACK):
+        print(f"Downloading NSRL from {url} …", flush=True)
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "windows-defenestrator/0.1 (https://github.com/steeb-k/windows-defenestrator)",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=600) as resp:
+                content_len = resp.headers.get("Content-Length", "unknown")
+                print(f"  Downloading ({content_len} bytes) …", flush=True)
+                data = resp.read()
+            print(f"  Downloaded {len(data):,} bytes", flush=True)
+            break
+        except Exception as e:
+            print(f"  WARNING: download failed from {url}: {e}", flush=True)
+
+    if not data:
+        print("  ERROR: all NSRL download sources failed", flush=True)
+        conn.close()
+        return 0
+
+    try:
+        archive = zf.ZipFile(io.BytesIO(data))
+    except zf.BadZipFile as e:
+        print(f"  ERROR: Not a zip file: {e}", flush=True)
+        conn.close()
+        return 0
+
+    names = archive.namelist()
+    print(f"  NSRL zip contents: {names[:10]}", flush=True)
+
+    # The flat file is called NSRLFile.txt (despite the extension, it's CSV)
+    csv_name = next((n for n in names if "NSRLFile" in n), None)
+    if not csv_name:
+        print(f"  ERROR: NSRLFile not found in zip. Contents: {names}", flush=True)
+        conn.close()
+        return 0
+
+    # NSRL RDS modern format header:
+    # "SHA-1","MD5","SHA-256","FileName","FileSize","ProductCode","OpSystemCode","SpecialCode"
+    SHA256_COL = 2
+    FILENAME_COL = 3
+
+    print(f"  Parsing {csv_name} …", flush=True)
+    rows = []
+    row_count = 0
+
+    with archive.open(csv_name) as f:
+        reader = csv.reader(io.TextIOWrapper(f, encoding="utf-8", errors="replace"))
+        next(reader, None)  # skip header row
+
+        for row in reader:
+            if len(row) <= FILENAME_COL:
+                continue
+
+            sha256 = row[SHA256_COL].strip().lower()
+            filename = row[FILENAME_COL].strip()
+
+            if len(sha256) != 64:
+                continue
+
+            ext = os.path.splitext(filename)[1].lower()
+            if ext not in NSRL_EXTS:
+                continue
+
+            rows.append((sha256,))
+            row_count += 1
+
+            if len(rows) >= BATCH_SIZE:
+                conn.executemany("INSERT OR IGNORE INTO allowlist VALUES (?)", rows)
+                conn.commit()
+                rows.clear()
+
+            if row_count % 500_000 == 0:
+                print(f"  … {row_count:,} NSRL executable entries processed", flush=True)
+
+    if rows:
+        conn.executemany("INSERT OR IGNORE INTO allowlist VALUES (?)", rows)
+        conn.commit()
+
+    count = conn.execute("SELECT COUNT(*) FROM allowlist").fetchone()[0]
+    conn.close()
+
+    print(f"  NSRL: processed {row_count:,} executable entries, {count:,} unique hashes in allowlist", flush=True)
+    return count
+
+
+# ── Step 3: YARA rules ────────────────────────────────────────────────────────
 
 def collect_yara_rules(work_dir: Path, rules_out_dir: Path) -> int:
     """Clone/update YARA sources and copy rules. Returns rule file count."""
@@ -263,19 +392,20 @@ def pack(out_dir: Path, rules_dir: Path) -> tuple:
     return zip_path, digest
 
 
-def write_manifest(out_dir, version, pack_url, pack_sha256, hash_count, rule_count):
+def write_manifest(out_dir, version, pack_url, pack_sha256, hash_count, rule_count, allowlist_count):
     manifest = {
         "version": version,
         "released_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "hash_count": hash_count,
         "rule_count": rule_count,
+        "allowlist_count": allowlist_count,
         "pack_url": pack_url,
         "pack_sha256": pack_sha256,
         "min_app_version": APP_VERSION,
     }
     path = out_dir / "manifest.json"
     path.write_text(json.dumps(manifest, indent=2))
-    print(f"  Wrote manifest: version={version}, hashes={hash_count:,}, rules={rule_count}", flush=True)
+    print(f"  Wrote manifest: version={version}, hashes={hash_count:,}, rules={rule_count}, allowlist={allowlist_count:,}", flush=True)
     return path
 
 
@@ -299,6 +429,7 @@ def main():
     print(f"\n=== Building definitions pack v{version} ===\n", flush=True)
 
     hash_count = build_hash_db(out_dir)
+    allowlist_count = build_allowlist(out_dir)
     rule_count = collect_yara_rules(work_dir, rules_dir)
 
     zip_path, sha256 = pack(out_dir, rules_dir)
@@ -306,7 +437,7 @@ def main():
     pack_url = (
         f"https://github.com/{args.repo}/releases/download/{version}/definitions.zip"
     )
-    write_manifest(out_dir, version, pack_url, sha256, hash_count, rule_count)
+    write_manifest(out_dir, version, pack_url, sha256, hash_count, rule_count, allowlist_count)
 
     print(f"\n=== Done. Output in {out_dir}/ ===\n", flush=True)
 
