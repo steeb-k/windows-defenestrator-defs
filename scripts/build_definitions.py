@@ -423,6 +423,27 @@ def collect_yara_rules(work_dir: Path, rules_out_dir: Path) -> int:
                     shutil.copy2(yar, dest)
                     rule_count += 1
 
+    # Post-copy cleanup: remove any rule file that matches ANY source's exclude
+    # patterns. This catches files that slipped through (e.g. from a different
+    # source or subdir than expected) and prevents AV from flagging the pack.
+    all_excl = [
+        re.compile(p, re.IGNORECASE)
+        for source in YARA_SOURCES
+        for p in source.get("exclude_patterns", [])
+    ]
+    removed = 0
+    for yar in rules_out_dir.rglob("*.yar"):
+        if any(p.search(yar.name) for p in all_excl):
+            yar.unlink()
+            removed += 1
+    for yar in rules_out_dir.rglob("*.yara"):
+        if any(p.search(yar.name) for p in all_excl):
+            yar.unlink()
+            removed += 1
+    if removed:
+        rule_count -= removed
+        print(f"  Removed {removed} excluded rule files in post-copy cleanup", flush=True)
+
     print(f"  Collected {rule_count} YARA rule files", flush=True)
     return rule_count
 
