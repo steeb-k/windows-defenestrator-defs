@@ -20,13 +20,19 @@ jobs:
       - name: Download NSRL Modern Minimal RDS from NIST
         run: |
           echo "Downloading NSRL Modern Minimal RDS..."
-          curl -fL \
+          curl -L \
             --retry 3 \
-            --retry-delay 10 \
-            --connect-timeout 30 \
-            -H "User-Agent: windows-defenestrator/0.1 (https://github.com/${{ github.repository }})" \
+            --retry-delay 15 \
+            --retry-all-errors \
+            --connect-timeout 60 \
+            --max-time 1800 \
+            -H "Referer: https://www.nist.gov/itl/ssd/software-quality-group/national-software-reference-library-nsrl/nsrl-download" \
             -o rds_modernm.zip \
             "https://s3.amazonaws.com/rds.nsrl.nist.gov/RDS/current/rds_modernm.zip"
+          if [[ ! -s rds_modernm.zip ]]; then
+            echo "ERROR: downloaded file is empty"
+            exit 1
+          fi
           SIZE=$(du -sh rds_modernm.zip | cut -f1)
           echo "Downloaded: $SIZE"
 
