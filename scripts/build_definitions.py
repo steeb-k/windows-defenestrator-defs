@@ -49,7 +49,7 @@ YARA_SOURCES = [
         "url": "https://github.com/reversinglabs/reversinglabs-yara-rules.git",
         "subdirs": ["yara/ransomware", "yara/backdoor", "yara/trojan",
                     "yara/infostealer", "yara/virus", "yara/exploit",
-                    "yara/downloader", "yara/rootkit"],
+                    "yara/downloader", "yara/rootkit", "yara/pua"],
         "exclude_patterns": [],
     },
     # Elastic: focused endpoint detection rules. Generally well-curated and
