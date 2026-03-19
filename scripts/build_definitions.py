@@ -41,28 +41,9 @@ NSRL_URL_FALLBACK = "https://s3.amazonaws.com/rds.nsrl.nist.gov/RDS/current/rds_
 NSRL_EXTS = {".exe", ".dll", ".sys", ".drv", ".ocx", ".cpl", ".msi", ".cab"}
 
 YARA_SOURCES = [
-    {
-        "name": "signature-base",
-        "url": "https://github.com/Neo23x0/signature-base.git",
-        "subdirs": ["yara"],
-        "exclude_patterns": [
-            r"_TESTING",
-            r"_experimental",
-            r"apt_",
-            r"gen_",        # generic infrastructure rules (IsPE64, IsPE32, etc.) — match every PE binary
-        ],
-    },
-    {
-        "name": "yara-rules",
-        "url": "https://github.com/Yara-Rules/rules.git",
-        "subdirs": ["malware", "exploit_kits", "packers"],
-        "exclude_patterns": [
-            r"_index\.yar",
-            r"TESTING",
-            r"packer_compiler_signatures",   # IsPE32/IsPE64 — match every PE binary
-            r"Javascript_exploit_and_obfuscation",  # possible_includes_base64_packed_functions — too broad
-        ],
-    },
+    # ReversingLabs: professional threat intelligence rules named after specific
+    # malware families (Win32.Ransomware.WannaCry, Win32.Backdoor.Gh0stRat, …).
+    # Very low false positive rate — each rule targets a distinct malware family.
     {
         "name": "reversinglabs-yara-rules",
         "url": "https://github.com/reversinglabs/reversinglabs-yara-rules.git",
@@ -71,6 +52,8 @@ YARA_SOURCES = [
                     "yara/downloader", "yara/rootkit"],
         "exclude_patterns": [],
     },
+    # Elastic: focused endpoint detection rules. Generally well-curated and
+    # specific to observed malware families and TTPs.
     {
         "name": "elastic-protections",
         "url": "https://github.com/elastic/protections-artifacts.git",
