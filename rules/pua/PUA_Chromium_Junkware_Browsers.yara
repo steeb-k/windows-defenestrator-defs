@@ -172,3 +172,78 @@ rule PUA_WebNavigatorBrowser : pua adware
         uint16(0) == 0x5A4D and
         any of them
 }
+
+rule PUA_WebDiscoverBrowser : pua adware
+{
+    meta:
+        description = "WebDiscover Browser - ad-injecting Chromium fork by Aztec Media that hijacks default search"
+        severity = "medium"
+        family = "WebDiscover"
+
+    strings:
+        $company  = "Aztec Media" ascii wide nocase
+        $product1 = "WebDiscover Browser" ascii wide nocase
+        $product2 = "WebDiscoverBrowser" ascii wide nocase
+        $domain   = "webdiscoverbrowser.com" ascii wide nocase
+        $file     = "WebDiscover.exe" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        2 of them
+}
+
+rule PUA_OneLaunch : pua adware
+{
+    meta:
+        description = "OneLaunch - bundleware dock and Chromium browser replacement by OneLaunch Technologies"
+        severity = "medium"
+        family = "OneLaunch"
+
+    strings:
+        $company  = "OneLaunch Technologies" ascii wide nocase
+        $product  = "OneLaunch" ascii wide nocase
+        $domain   = "onelaunch.com" ascii wide nocase
+        $file1    = "OneLaunch.exe" ascii wide nocase
+        $file2    = "OneLaunchBrowser.exe" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        2 of them
+}
+
+rule PUA_OneStartBrowser : pua adware
+{
+    meta:
+        description = "OneStart Browser - bundleware Chromium fork distributed via software installers"
+        severity = "medium"
+        family = "OneStart"
+
+    strings:
+        $product1 = "OneStart Browser" ascii wide nocase
+        $product2 = "OneStartBrowser" ascii wide nocase
+        $domain1  = "onestart.ai" ascii wide nocase
+        $domain2  = "onestart.com" ascii wide nocase
+        $file     = "OneStart.exe" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        2 of them
+}
+
+rule PUA_ShiftBrowser : pua adware
+{
+    meta:
+        description = "Shift Browser - multi-account browser by Shift Technologies distributed as bundleware"
+        severity = "medium"
+        family = "Shift"
+
+    strings:
+        $company  = "Shift Technologies" ascii wide nocase
+        $product  = "Shift Browser" ascii wide nocase
+        $domain   = "tryshift.com" ascii wide nocase
+        $file     = "Shift.exe" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        2 of them
+}
