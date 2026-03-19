@@ -378,6 +378,10 @@ def build_allowlist(out_dir: Path) -> int:
 
 def collect_yara_rules(work_dir: Path, rules_out_dir: Path) -> int:
     """Clone/update YARA sources and copy rules. Returns rule file count."""
+    # IMPORTANT: wipe the output directory first so stale rule directories from
+    # previously-configured sources (cached by CI) don't persist into the zip.
+    if rules_out_dir.exists():
+        shutil.rmtree(rules_out_dir)
     rules_out_dir.mkdir(parents=True, exist_ok=True)
     rule_count = 0
 
