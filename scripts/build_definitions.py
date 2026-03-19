@@ -418,6 +418,20 @@ def collect_yara_rules(work_dir: Path, rules_out_dir: Path) -> int:
                     shutil.copy2(yar, dest)
                     rule_count += 1
 
+    # Copy local custom rules (rules/ directory in repo root)
+    local_rules = Path(__file__).resolve().parent.parent / "rules"
+    if local_rules.exists():
+        print(f"Copying local custom rules from {local_rules} …", flush=True)
+        for ext in ("*.yar", "*.yara"):
+            for yar in local_rules.rglob(ext):
+                rel = yar.relative_to(local_rules)
+                dest = rules_out_dir / "custom" / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(yar, dest)
+                rule_count += 1
+        local_count = sum(1 for _ in local_rules.rglob("*.yar")) + sum(1 for _ in local_rules.rglob("*.yara"))
+        print(f"  Added {local_count} custom rule files", flush=True)
+
     # Post-copy cleanup: remove any rule file that matches ANY source's exclude
     # patterns. This catches files that slipped through (e.g. from a different
     # source or subdir than expected) and prevents AV from flagging the pack.
