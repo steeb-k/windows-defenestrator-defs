@@ -82,6 +82,14 @@ YARA_SOURCES = [
 APP_VERSION = "0.1.0"
 BATCH_SIZE = 10_000
 
+# ── YARA global exclusions ────────────────────────────────────────────────────
+# Applied to ALL sources during post-copy cleanup, regardless of which source
+# the file came from. Patterns are matched case-insensitively against filenames.
+GLOBAL_EXCLUDE_PATTERNS = [
+    r"_[Tt]est\b",    # *_Test, *_test suffix -- unit/integration test rules
+    r"_[Tt]esting\b", # belt-and-suspenders alongside per-source _TESTING
+]
+
 # ── Hash quality filters ──────────────────────────────────────────────────────
 
 # Minimum VirusTotal detection percentage required to import a hash.
@@ -430,6 +438,9 @@ def collect_yara_rules(work_dir: Path, rules_out_dir: Path) -> int:
         re.compile(p, re.IGNORECASE)
         for source in YARA_SOURCES
         for p in source.get("exclude_patterns", [])
+    ] + [
+        re.compile(p, re.IGNORECASE)
+        for p in GLOBAL_EXCLUDE_PATTERNS
     ]
     removed = 0
     for yar in rules_out_dir.rglob("*.yar"):
