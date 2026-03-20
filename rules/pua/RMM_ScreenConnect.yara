@@ -16,5 +16,8 @@ rule RMM_ScreenConnect : pua rmm
 
     condition:
         uint16(0) == 0x5A4D and
-        ($svc or any of ($path*) or ($company and any of ($product*)))
+        // Require vendor/product corroboration to avoid matching cleanup tools
+        // that only embed ScreenConnect service/path strings.
+        (($company and 1 of ($product*, $svc, $path*)) or
+         (all of ($product*) and 1 of ($svc, $path*)))
 }
