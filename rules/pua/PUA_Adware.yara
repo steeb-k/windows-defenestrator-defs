@@ -3,7 +3,7 @@
     Detects known adware families that inject advertisements, hijack search
     results, install root certificates for MITM, or track browsing.
 
-    Author: Windows Defenestrator project
+    Author: System Defenestrator project
     License: MIT
 */
 
@@ -159,4 +159,151 @@ rule PUA_OutBrowse : pua adware
     condition:
         uint16(0) == 0x5A4D and
         any of them
+}
+
+rule PUA_Presenoker : pua adware
+{
+    meta:
+        description = "Presenoker - adware/browser hijacker family frequently flagged as PUA by Defender"
+        severity = "medium"
+        family = "Presenoker"
+
+    strings:
+        $brand1  = "Presenoker" ascii wide nocase
+        $brand2  = "Adware:Win32/Presenoker" ascii wide nocase
+        $file1   = "Presenoker.exe" ascii wide nocase
+        $file2   = "presenoker.dll" ascii wide nocase
+        $reg1    = "Software\\Presenoker" ascii wide nocase
+        $task1   = "\\Presenoker" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        (1 of ($brand*) and 1 of ($file*, $reg1, $task1))
+}
+
+rule PUA_PCAppStore : pua adware
+{
+    meta:
+        description = "PC App Store - deceptive third-party app store and adware platform"
+        severity = "medium"
+        family = "PCAppStore"
+
+    strings:
+        $brand1  = "PC App Store" ascii wide nocase
+        $brand2  = "pcappstore" ascii wide nocase
+        $file1   = "PCAppStore.exe" ascii wide nocase
+        $file2   = "pcappstore.exe" ascii wide nocase
+        $reg1    = "Software\\PC App Store" ascii wide nocase
+        $domain1 = "pcappstore.com" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        (1 of ($brand*) and 1 of ($file*, $reg1, $domain1))
+}
+
+rule PUA_Vigua : pua adware
+{
+    meta:
+        description = "Vigua - fake optimizer/adware family commonly distributed through bundled installers"
+        severity = "medium"
+        family = "Vigua"
+
+    strings:
+        $brand1  = "Vigua" ascii wide nocase
+        $brand2  = "Vigua.A" ascii wide nocase
+        $file1   = "Vigua.exe" ascii wide nocase
+        $file2   = "vigua.dll" ascii wide nocase
+        $reg1    = "Software\\Vigua" ascii wide nocase
+        $task1   = "\\Vigua" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        (1 of ($brand*) and 1 of ($file*, $reg1, $task1))
+}
+
+rule PUA_ByteFence : pua adware
+{
+    meta:
+        description = "ByteFence - potentially unwanted anti-malware product often bundled and difficult to remove"
+        severity = "medium"
+        family = "ByteFence"
+
+    strings:
+        $brand1    = "ByteFence" ascii wide nocase
+        $brand2    = "Byte Technologies LLC" ascii wide nocase
+        $artifact1 = "ByteFenceService.exe" ascii wide nocase
+        $artifact2 = "ByteFence.exe" ascii wide nocase
+        $artifact3 = "ByteFence Anti-Malware" ascii wide nocase
+        $artifact4 = "SYSTEM\\CurrentControlSet\\Services\\ByteFenceService" ascii wide nocase
+        $artifact5 = "\\ByteFence\\" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        (1 of ($brand*) and 1 of ($artifact*))
+}
+
+rule PUA_WebCompanion : pua adware
+{
+    meta:
+        description = "Web Companion - browser companion/hijacker associated with Lavasoft ecosystem"
+        severity = "medium"
+        family = "WebCompanion"
+
+    strings:
+        $brand1    = "Web Companion" ascii wide nocase
+        $brand2    = "Lavasoft" ascii wide nocase
+        $artifact1 = "Lavasoft.WCAssistant.WinService.exe" ascii wide nocase
+        $artifact2 = "Lavasoft.AdAware.dll" ascii wide nocase
+        $artifact3 = "\\Lavasoft\\Web Companion\\" ascii wide nocase
+        $artifact4 = "WCAssistant.WinService" ascii wide nocase
+        $artifact5 = "wcdownloader.lavasoft.com" ascii wide nocase
+        $artifact6 = "webcompanion.com" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        (1 of ($brand*) and 1 of ($artifact*))
+}
+
+rule PUA_PCAcceleratePro : pua adware
+{
+    meta:
+        description = "PC Accelerate Pro - fake optimizer/scareware utility"
+        severity = "medium"
+        family = "PCAcceleratePro"
+
+    strings:
+        $brand1    = "PC Accelerate Pro" ascii wide nocase
+        $brand2    = "PCAcceleratePro" ascii wide nocase
+        $artifact1 = "PCAcceleratePro.exe" ascii wide nocase
+        $artifact2 = "\\PCAcceleratePro\\" ascii wide nocase
+        $artifact3 = "PC Accelerate Pro has detected" ascii wide nocase
+        $artifact4 = "InstantSupport" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        (1 of ($brand*) and 1 of ($artifact1, $artifact2, $artifact3, $artifact4))
+}
+
+rule PUA_Segurazo_SAntivirus : pua adware
+{
+    meta:
+        description = "Segurazo / SAntivirus - potentially unwanted fake-security product family"
+        severity = "medium"
+        family = "Segurazo"
+
+    strings:
+        $brand1    = "Segurazo" ascii wide nocase
+        $brand2    = "SAntivirus Realtime Protection Lite" ascii wide nocase
+        $brand3    = "SAntivirus" ascii wide nocase
+        $artifact1 = "SegurazoService.exe" ascii wide nocase
+        $artifact2 = "SAntivirusService.exe" ascii wide nocase
+        $artifact3 = "SegurazoIC.exe" ascii wide nocase
+        $artifact4 = "SAntivirusIC.exe" ascii wide nocase
+        $artifact5 = "SegurazoSvc" ascii wide nocase
+        $artifact6 = "\\Segurazo\\" ascii wide nocase
+        $artifact7 = "segurazo.com" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        (1 of ($brand*) and 1 of ($artifact*))
 }

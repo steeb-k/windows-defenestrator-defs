@@ -4,7 +4,7 @@
     redirect searches, and track browsing activity.
 
     Severity: medium (PUA, not malware)
-    Author: Windows Defenestrator project
+    Author: System Defenestrator project
     License: MIT
 */
 

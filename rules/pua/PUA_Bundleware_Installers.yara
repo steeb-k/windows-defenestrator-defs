@@ -4,7 +4,7 @@
     downloads, often with deceptive opt-out UIs.
 
     Severity: medium (PUA, not malware)
-    Author: Windows Defenestrator project
+    Author: System Defenestrator project
     License: MIT
 */
 
@@ -102,4 +102,65 @@ rule PUA_CNETDownloader : pua adware
     condition:
         uint16(0) == 0x5A4D and
         any of them
+}
+
+rule PUA_FusionCore : pua adware
+{
+    meta:
+        description = "FusionCore - adware bundler platform distributed via deceptive freeware installers"
+        severity = "medium"
+        family = "FusionCore"
+
+    strings:
+        $brand1  = "FusionCore" ascii wide nocase
+        $brand2  = "Adware.FusionCore" ascii wide nocase
+        $file1   = "FusionCoreStub.exe" ascii wide nocase
+        $file2   = "FusionCoreInstaller.exe" ascii wide nocase
+        $module1 = "FusionCoreStub" ascii wide nocase
+        $module2 = "FusionCoreInstaller" ascii wide nocase
+        $reg1    = "Software\\FusionCore" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        (1 of ($brand*) and 1 of ($file*, $module*, $reg1))
+}
+
+rule PUA_DriverPack : pua adware
+{
+    meta:
+        description = "DriverPack - driver updater/download assistant commonly distributed as a PUA bundler"
+        severity = "medium"
+        family = "DriverPack"
+
+    strings:
+        $brand1  = "DriverPack" ascii wide nocase
+        $brand2  = "DriverPack Solution" ascii wide nocase
+        $exe1    = "DriverPack.exe" ascii wide nocase
+        $exe2    = "DriverPackInstaller.exe" ascii wide nocase
+        $dll1    = "DriverPack.Cloud.dll" ascii wide nocase
+        $reg1    = "Software\\DriverPack" ascii wide nocase
+        $vendor1 = "driverpack.io" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        (1 of ($brand*) and 1 of ($exe*, $dll1, $reg1, $vendor1))
+}
+
+rule PUA_OfferCore : pua adware
+{
+    meta:
+        description = "OfferCore - downloader/bundleware framework used to deliver additional unwanted software"
+        severity = "medium"
+        family = "OfferCore"
+
+    strings:
+        $brand1    = "OfferCore" ascii wide nocase
+        $brand2    = "OffercastInstaller" ascii wide nocase
+        $artifact1 = "OffercastInstaller" ascii wide nocase
+        $artifact2 = "microstub.exe" ascii wide nocase
+        $artifact3 = "stub.exe" ascii wide nocase
+
+    condition:
+        uint16(0) == 0x5A4D and
+        (1 of ($brand*) and 2 of ($artifact*))
 }

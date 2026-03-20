@@ -52,6 +52,9 @@ Installer wrappers that bundle unwanted software with legitimate downloads using
 | `PUA_Crossrider` | Crossrider (now Kape Technologies) | Company name, PDB paths, registry key, domain, known CLSIDs | Medium |
 | `PUA_SoftonicDownloader` | Softonic Downloader | Company name, product name | Medium |
 | `PUA_CNETDownloader` | CNET Download.com Installer | Product names ("CNET Download.com Installer", "CBS Interactive Download Manager") | Medium |
+| `PUA_FusionCore` | FusionCore bundler | Family branding + module/file/registry artifacts (brand + artifact required) | Medium |
+| `PUA_DriverPack` | DriverPack bundler/updater | Family branding + executable/dll/registry/domain artifacts (brand + artifact required) | Medium |
+| `PUA_OfferCore` | OfferCore bundle downloader | OfferCore branding + installer executable/registry artifacts | Medium |
 
 ---
 
@@ -69,6 +72,13 @@ Programs that inject ads, hijack search results, install root certificates for M
 | `PUA_DealPly` | DealPly | Company name, filenames, `--IsErIk` parameter, C2 domain | Medium |
 | `PUA_Adpeak` | Adpeak | Company name | Medium |
 | `PUA_OutBrowse` | OutBrowse | Company name | Medium |
+| `PUA_Presenoker` | Presenoker | Family branding + executable/registry/task artifacts (brand + artifact required) | Medium |
+| `PUA_PCAppStore` | PC App Store | Product branding + executable/registry/domain artifacts (brand + artifact required) | Medium |
+| `PUA_Vigua` | Vigua fake optimizer family | Family branding + executable/registry/task artifacts (brand + artifact required) | Medium |
+| `PUA_ByteFence` | ByteFence | Product/vendor branding + service executable and persistence artifacts | Medium |
+| `PUA_WebCompanion` | Web Companion (Lavasoft) | Product/vendor branding + WinService/module/install-path artifacts | Medium |
+| `PUA_PCAcceleratePro` | PC Accelerate Pro | Product branding + executable/install-path/scareware messaging artifacts | Medium |
+| `PUA_Segurazo_SAntivirus` | Segurazo / SAntivirus | Dual-family branding + service/executable/install-path artifacts | Medium |
 
 ---
 

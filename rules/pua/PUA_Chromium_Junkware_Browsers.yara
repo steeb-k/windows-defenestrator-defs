@@ -4,7 +4,7 @@
     browser defaults, inject ads, or track browsing without informed consent.
 
     Severity: medium (PUA, not malware)
-    Author: Windows Defenestrator project
+    Author: System Defenestrator project
     License: MIT
 */
 
